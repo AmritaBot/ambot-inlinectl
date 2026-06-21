@@ -1,2 +1,7 @@
-# project-template-no-docs
-Project Template for UV python project without vitepress doc.
+```shell
+pip install ambot-inlinectl
+```
+
+```shell
+ambot <cmd>
+```
