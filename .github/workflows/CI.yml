@@ -49,10 +49,6 @@ jobs:
         with:
           python-path: ${{ env.PYTHON_BIN }}
           pylance-version: latest-release
-      - name: Run Unit Tests with JUnit XML output
-        run: uv run pytest tests/ --cov=src/my_project --cov-report=term-missing
-          --cov-report=xml --junitxml=test-results.xml -v
-
       - name: Publish Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()

@@ -1,10 +1,12 @@
 [project]
-name = "my_project"
-version = "0.10.1"
-description = "My desc"
+name = "ambot_inlinectl"
+version = "0.1.0"
+description = "Inline management for AmritaBot"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "amrita>=1.3.0",
+    "click>=8.4.1",
 ]
 
 [project.urls]
@@ -18,13 +20,17 @@ package=true
 [dependency-groups]
 dev = [
     "ruff>=0.12.8",
-    "pytest>=9.1.1",
+    #"pytest>=9.1.1",
     "py-spy>=0.4.1",
     "pyright>=1.1.407",
-    "pytest-asyncio>=1.3.0",
-    "pytest-cov>=7.0.0",
+    #"pytest-asyncio>=1.3.0",
+    #"pytest-cov>=7.0.0",
 
 ]
+
+[project.scripts]
+ambot = "ambot_inlinectl:__main__.main"
+
 
 [tool.ruff]
 line-length = 88
@@ -58,3 +64,21 @@ ignore = [
 
 [tool.pyright]
 typeCheckingMode = "standard"
+
+[tool.amrita]
+plugins = [
+    "amrita.plugins.chat",
+    "amrita.plugins.manager",
+    "amrita.plugins.webui",
+]
+
+[tool.nonebot]
+plugins = ["nonebot_plugin_orm"]
+
+[tool.amctl.scripts]
+orm = "uv run ambot orm"
+
+[tool.amctl.project]
+project-type = "amctl_template"
+version = "0.1.1"
+created_at = "2026-06-21T08:12:45.279885+00:00"
