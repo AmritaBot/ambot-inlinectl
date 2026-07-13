@@ -1,10 +1,11 @@
 [project]
 name = "ambot_inlinectl"
-version = "0.1.1"
+version = "0.1.2"
 description = "Inline management for AmritaBot"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "amctl>=0.1.3",
     "amrita>=1.3.0",
     "click>=8.4.1",
 ]

@@ -1,5 +1,4 @@
-from .__main__ import main
+from . import plugin
+from .cli import main
 
-__all__ = [
-    "main",
-]
+__all__ = ["main", "plugin"]
