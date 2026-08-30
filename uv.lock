@@ -5,8 +5,8 @@ resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'",
-    "python_full_version < '3.11' and sys_platform == 'win32'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform != 'win32'",
+    "python_full_version < '3.11' and sys_platform == 'win32'",
     "python_full_version < '3.11' and sys_platform != 'win32'",
 ]
 
@@ -313,7 +313,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.6.7.1"
+version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -326,6 +326,7 @@ dependencies = [
     { name = "amrita-sense" },
     { name = "async-lru" },
     { name = "bcrypt" },
+    { name = "faskill", extra = ["amrita"] },
     { name = "fastmcp" },
     { name = "importlib" },
     { name = "jinja2" },
@@ -346,9 +347,9 @@ dependencies = [
     { name = "watchfiles" },
     { name = "zipp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/cc/f3ea000e994f7f5315358ac460fe04b90570c94ebaff1d574a0f4c9590d9/amrita-1.6.7.1.tar.gz", hash = "sha256:9bbd15b10119e388e31598323e574c20c7a9795c701effc399ac25629afec805", size = 1526865, upload-time = "2026-08-20T02:17:25.597Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/cd/906af55243d09d53c872f7c37c3ca941c403ccced782f4fadf36da095cf9/amrita-1.7.0.tar.gz", hash = "sha256:671ab924f6090c7e90a5d1c292b5498ba98a9272a08776c8c2f640179b3dfe8d", size = 1533907, upload-time = "2026-08-22T10:37:28.584Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/1e/7ec033151c817b534d1df607d9567c817a247263b692c7f0de8510ae212e/amrita-1.6.7.1-py3-none-any.whl", hash = "sha256:9633956f4dd329d3f77051e67f8bea00d1c2d85bd24d8a02cb25110764bd0a4f", size = 1641415, upload-time = "2026-08-20T02:17:24.118Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/f2/bace0a5d878d41c031100ab0ca0e16f3553bd5717bb9a4ca5fcfca3f29f3/amrita-1.7.0-py3-none-any.whl", hash = "sha256:751b2f3f51bea6cf182ec21e5a0e1edf47610c67ea6d53677388ee74b5d9a8d4", size = 1652281, upload-time = "2026-08-22T10:37:27.271Z" },
 ]
 
 [[package]]
@@ -1006,6 +1007,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598", size = 16740, upload-time = "2025-11-21T23:01:53.443Z" },
+]
+
+[[package]]
+name = "faskill"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiofiles" },
+    { name = "aiologic" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a4/ec/39708fe82c470b0106a3aa5239fcec8780c2272ba2c628ccd93566942816/faskill-0.2.0.tar.gz", hash = "sha256:ac37fcd75a7498342f9e5696fc4cda2d8ef806629bd90e451c866c3ca2d6114e", size = 120610, upload-time = "2026-08-16T14:18:57.266Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4b/a8/29c1ed2d3a5f48b5e77e6d3bbba4316a940c03ded9e27f3dfff2a88b36d7/faskill-0.2.0-py3-none-any.whl", hash = "sha256:199e00b2f2619a139fe05e6b62cba40dd5c343b7c254f1eecce3b8ac224c247a", size = 63063, upload-time = "2026-08-16T14:18:56.259Z" },
+]
+
+[package.optional-dependencies]
+amrita = [
+    { name = "amrita-core" },
 ]
 
 [[package]]
