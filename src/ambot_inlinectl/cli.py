@@ -7,6 +7,7 @@ from amrita import prepare_nb_cli, prepare_orm
 from .group import AmbotGroup
 from .registry import (
     ENTRY_POINT_GROUP,
+    deferred_entry_point_names,
     load_entry_point_commands,
     overridden_commands,
     registered_commands,
@@ -60,6 +61,7 @@ def list_cmds():
     """列出所有子命令及其来源"""
     # 先加载 entry point：自行注册的命令会在这一步进入进程内注册表
     external = sorted(load_entry_point_commands())
+    deferred = deferred_entry_point_names()
     builtin = sorted(name for name, cmd in main.commands.items() if not cmd.hidden)
     overrides = sorted(overridden_commands())
     registered = sorted(set(registered_commands()) - set(overrides))
@@ -75,9 +77,11 @@ def list_cmds():
     _section("显式覆盖:", overrides)
     _section("进程内注册:", registered)
     _section(f"entry point ({ENTRY_POINT_GROUP}):", external)
+    _section("entry point (full_load，调用时自举):", deferred)
 
-    total = len(set(builtin) | set(overrides) | set(registered) | set(external))
-    click.echo(f"\n  共 {click.style(str(total), bold=True)} 个子命令")
+    all_names = set(builtin) | set(overrides) | set(registered) | set(external)
+    all_names |= set(deferred)
+    click.echo(f"\n  共 {click.style(str(len(all_names)), bold=True)} 个子命令")
 
 
 @main.command("moo", hidden=True)

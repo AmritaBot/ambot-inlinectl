@@ -5,8 +5,10 @@ from __future__ import annotations
 import click
 
 from .registry import (
+    deferred_entry_point_names,
     get_registered_command,
     is_overridden,
+    load_deferred_entry_point_command,
     load_entry_point_commands,
     overridden_commands,
     registered_commands,
@@ -53,13 +55,20 @@ class AmbotGroup(click.Group):
         if cmd is not None:
             return cmd
 
-        return load_entry_point_commands().get(cmd_name)
+        cmd = load_entry_point_commands().get(cmd_name)
+        if cmd is not None:
+            return cmd
+
+        # full_load 的 entry point 到这一步才自举加载。
+        return load_deferred_entry_point_command(cmd_name)
 
     def list_commands(self, ctx: click.Context) -> list[str]:
         names = set(overridden_commands())
         names.update(super().list_commands(ctx))
         names.update(registered_commands())
         names.update(load_entry_point_commands())
+        # 只读元信息，不触发自举 —— 否则 `ambot --help` 也会加载整个插件。
+        names.update(deferred_entry_point_names())
         return sorted(names)
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:

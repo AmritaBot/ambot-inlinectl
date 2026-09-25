@@ -117,6 +117,29 @@ doctor = "my_pkg.cli:doctor"
 单个 entry point 对应单个命令时，命令名以 entry point 名为准；返回多个命令时，
 各自使用命令自身的名称。
 
+#### 声明 `full_load`：目标需要完整插件环境
+
+entry point 的值支持标准 extras 语法。声明 `full_load` 后，该命令在
+`ambot --help` / `ambot cmds` 里**只出现名称、不触发加载**；真正被调用时才会：
+
+1. 写入 `AMBOT_COMMAND_CONTEXT=1` 环境变量
+2. 执行 `amrita.init()` + `amrita.load_plugins()`
+3. 再 `ep.load()` 目标
+
+适用于目标模块位于插件包内、且该包 import 期依赖插件加载器上下文
+（例如 `nonebot.require(...)`）的场景 —— 这类模块在 `ambot` 解析参数阶段
+直接加载必然失败。`full_load` 的 entry point 以 entry point 名作为命令名
+（约定单个命令）。
+
+```toml
+[project.entry-points."ambot.commands"]
+memory = "my_pkg.cli:memory [full_load]"
+```
+
+插件可以读取 `AMBOT_COMMAND_CONTEXT` 判断自己是被 `ambot <cmd>` 拉起来的、
+而非在跑 bot，从而跳过启动期的交互式检查（否则维护命令会被自己的启动检查
+挡在门外）。
+
 ### 方式二：进程内注册
 
 ```python
@@ -138,8 +161,7 @@ register_command(click.Command("doctor", callback=doctor))
 
 ```python
 @command("run", replace=True)
-def my_run():
-    ...
+def my_run(): ...
 ```
 
 重复注册同名命令会抛 `ValueError`（显式传空名称同样报错）；加载失败的

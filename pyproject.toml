@@ -1,6 +1,6 @@
 [project]
 name = "ambot_inlinectl"
-version = "0.2.0.post1"
+version = "0.2.1"
 description = "Inline management for AmritaBot"
 readme = "README.md"
 requires-python = ">=3.10"
