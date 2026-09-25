@@ -14,6 +14,12 @@ pip install ambot-inlinectl
 ambot <命令>
 ```
 
+列出当前所有可用子命令及其来源：
+
+```shell
+ambot cmds
+```
+
 ## 命令
 
 ### `ambot run`
@@ -24,12 +30,13 @@ ambot <命令>
 ambot run
 ```
 
-### `ambot run-in-sub`
+### `ambot run_in_sub`
 
 在子进程中启动 bot（等效于 `ambot run`，但通过新进程运行）。
 
 ```shell
-ambot run-in-sub
+ambot run_in_sub
+ambot run-in-sub   # 下划线与连字符可互换
 ```
 
 ### `ambot nb <参数...>`
@@ -86,6 +93,60 @@ ambot plugin add amrita_plugin_example
 ```shell
 ambot plugin remove nonebot_plugin_orm
 ```
+
+## 注册子命令
+
+`ambot` 的根命令是惰性解析的，第三方包可以往里挂自己的子命令，挂上之后直接
+`ambot <你的命令>` 即可，无需修改本仓库。
+
+### 方式一：entry point（推荐，跨包）
+
+在插件包的 `pyproject.toml` 里声明：
+
+```toml
+[project.entry-points."ambot.commands"]
+doctor = "my_pkg.cli:doctor"
+```
+
+`doctor` 即命令名。指向的对象可以是：
+
+- 一个 `click.Command`（`click.Group` 亦可）
+- 一个零参可调用对象，返回 `click.Command`、命令序列，或 `None`
+  （返回 `None` 表示它已自行调用 `register_command()`）
+
+单个 entry point 对应单个命令时，命令名以 entry point 名为准；返回多个命令时，
+各自使用命令自身的名称。
+
+### 方式二：进程内注册
+
+```python
+import click
+from ambot_inlinectl import command, register_command
+
+
+@command("doctor")
+def doctor():
+    """Check project health."""
+    click.echo("ok")
+
+
+# 等价写法
+register_command(click.Command("doctor", callback=doctor))
+```
+
+要覆盖 ambot 自带命令（如 `run`）时需显式声明，否则自带命令优先命中：
+
+```python
+@command("run", replace=True)
+def my_run():
+    ...
+```
+
+重复注册同名命令会抛 `ValueError`（显式传空名称同样报错）；加载失败的
+entry point 只会告警并跳过，不影响其余命令。两个 entry point 声明了同一个
+命令名时，按 `(名称, 目标)` 排序取先出现的一个并告警，结果不依赖安装顺序。
+
+用 `unregister_command()` 注销后，被它覆盖的自带命令会恢复。
 
 ## pyproject.toml 配置
 
