@@ -22,12 +22,25 @@ entry point 指向的对象可以是：
 单个 entry point 对应单个命令时，命令名以 entry point 名为准，便于包作者
 用同一份实现暴露别名；返回多个命令时，各自使用命令自身的名称。
 
+entry point 的值支持标准 extras 语法，用来声明加载方式：
+
+.. code-block:: toml
+
+   [project.entry-points."ambot.commands"]
+   memory = "my_pkg.cli:memory [full_load]"
+
+带 ``full_load`` 的 entry point 在列表阶段（``ambot --help`` / ``ambot cmds``）
+只暴露名称、不触发加载；真正被调用时才先 ``amrita.init()`` +
+``amrita.load_plugins()``，再 ``ep.load()``。用于目标模块位于插件包内、且该包
+import 期依赖插件加载器上下文（例如 ``nonebot.require(...)``）的场景。
+
 entry point 之间出现同名命令时，按 ``(名称, 目标)`` 排序后取先出现的一个，
 并往 stderr 告警，避免结果依赖安装顺序。
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from importlib.metadata import EntryPoint, entry_points
 from typing import Any
@@ -37,9 +50,30 @@ import click
 ENTRY_POINT_GROUP = "ambot.commands"
 """第三方包声明 ambot 子命令所使用的 entry point 组名。"""
 
+FULL_LOAD_EXTRA = "full_load"
+"""声明该 extra 的 entry point 会先自举 Amrita 再加载目标。
+
+用法（``pyproject.toml``）::
+
+    [project.entry-points."ambot.commands"]
+    memory = "my_pkg.cli:memory [full_load]"
+
+这类 entry point 以 entry point 名作为命令名（约定单个命令），并且在列表阶段
+不会触发加载，因此 ``ambot --help`` 不受影响。
+"""
+
+COMMAND_CONTEXT_ENV = "AMBOT_COMMAND_CONTEXT"
+"""自举 ``full_load`` entry point 前写入的环境变量（值为 ``"1"``）。
+
+插件可据此判断自己是被 ``ambot <cmd>`` 拉起来的、而非在跑 bot，从而跳过
+启动期的交互式检查 —— 否则维护命令可能被自己的启动检查挡在门外。
+"""
+
 _registry: dict[str, click.Command] = {}
 _shadowed: set[str] = set()
 _entry_point_cache: dict[str, click.Command] | None = None
+_deferred_entry_point_cache: dict[str, click.Command] = {}
+_bootstrap_done = False
 
 
 def _normalize(name: str) -> str:
@@ -179,10 +213,137 @@ def _add_entry_point_command(
     found[name] = command
 
 
+def _iter_entry_points() -> list[EntryPoint]:
+    """按 ``(名称, 目标)`` 排序后的 entry point 列表（不触发加载）。"""
+    return sorted(
+        entry_points(group=ENTRY_POINT_GROUP),
+        key=lambda ep: (ep.name, ep.value),
+    )
+
+
+def needs_full_load(ep: EntryPoint) -> bool:
+    """该 entry point 是否声明了 ``full_load`` extra。"""
+    return FULL_LOAD_EXTRA in ep.extras
+
+
+def deferred_entry_point_names() -> list[str]:
+    """需要自举的 entry point 名称（只读元信息，不加载目标）。"""
+    return sorted(
+        _normalize(ep.name) for ep in _iter_entry_points() if needs_full_load(ep)
+    )
+
+
+def _bootstrap() -> None:
+    """Amrita 初始化 + 插件加载，让插件包内模块可以被 import。
+
+    与 ``ambot orm`` 内部 ``amrita.prepare_orm()`` 的前两步一致；幂等。
+    """
+    global _bootstrap_done
+    if _bootstrap_done:
+        return
+    # 告知插件当前处于 `ambot <cmd>` 命令上下文（而非在跑 bot），
+    # 使其跳过启动期的交互式检查。
+    os.environ.setdefault(COMMAND_CONTEXT_ENV, "1")
+    import amrita
+
+    amrita.init()
+    amrita.load_plugins()
+    _bootstrap_done = True
+
+
+def _load_deferred_target(ep: EntryPoint) -> click.Command | None:
+    """自举后加载 ``full_load`` entry point 的目标，失败只告警。"""
+    origin = f"entry point {ep.name!r}"
+    _bootstrap()
+    try:
+        commands = _coerce_commands(ep.load(), origin)
+    except Exception as exc:
+        _warn(f"加载子命令 {ep.name!r} 失败：{exc}")
+        return None
+    if not commands:
+        return None
+    if len(commands) > 1:
+        _warn(f"{origin} 声明了 full_load，但返回多个命令，仅取第一个")
+    return commands[0]
+
+
+class DeferredCommand(click.Command):
+    """``full_load`` entry point 的惰性代理。
+
+    click 的 ``format_commands`` 会为每个列出的子命令调用 ``get_command``
+    取短帮助，因此代理本身必须能在**不自举**的前提下被创建与展示。真正
+    加载发生在 click 为该命令建立上下文时（``make_context``），也就是用户
+    确实执行了 ``ambot <name> ...`` 的那一刻。
+    """
+
+    def __init__(self, name: str, entry_point: EntryPoint, help_text: str) -> None:
+        super().__init__(name=name, help=help_text)
+        self._entry_point = entry_point
+        self._real: click.Command | None = None
+
+    def resolve_target(self) -> click.Command:
+        """自举并加载真实命令（只加载一次）。
+
+        Raises:
+            click.ClickException: 目标加载失败（插件无法启动等）。
+        """
+        if self._real is None:
+            real = _load_deferred_target(self._entry_point)
+            if real is None:
+                raise click.ClickException(
+                    f"子命令 {self.name!r} 加载失败，请检查插件能否正常启动"
+                )
+            self._real = real
+        return self._real
+
+    def make_context(
+        self,
+        info_name: str | None,
+        args: list[str],
+        parent: click.Context | None = None,
+        **extra: Any,
+    ) -> click.Context:
+        # 完全交给真实命令建上下文：--help、参数解析、no_args_is_help
+        # 等行为与直接注册的命令一致。
+        return self.resolve_target().make_context(
+            info_name, args, parent=parent, **extra
+        )
+
+    def invoke(self, ctx: click.Context) -> Any:
+        # 仅在代理被当作顶层命令直接调用时走到这里。
+        return self.resolve_target().invoke(ctx)
+
+
+def load_deferred_entry_point_command(name: str) -> click.Command | None:
+    """按名取 ``full_load`` entry point 的惰性代理（不触发自举）。
+
+    只按 entry point 名匹配（``full_load`` 约定为单个命令）。
+    """
+    cmd_name = _normalize(name)
+    cached = _deferred_entry_point_cache.get(cmd_name)
+    if cached is not None:
+        return cached
+
+    for ep in _iter_entry_points():
+        if _normalize(ep.name) != cmd_name or not needs_full_load(ep):
+            continue
+        proxy = DeferredCommand(
+            name=cmd_name,
+            entry_point=ep,
+            help_text=f"来自 {ep.value}（首次调用时加载插件）",
+        )
+        _deferred_entry_point_cache[cmd_name] = proxy
+        return proxy
+
+    return None
+
+
 def load_entry_point_commands(*, force: bool = False) -> dict[str, click.Command]:
     """扫描并缓存 ``ambot.commands`` entry point 声明的子命令。
 
-    加载失败只告警并跳过，不会中断 CLI。
+    声明了 ``full_load`` 的项不在此处加载（见
+    :func:`load_deferred_entry_point_command`）。加载失败只告警并跳过，
+    不会中断 CLI。
     """
     global _entry_point_cache
 
@@ -190,12 +351,10 @@ def load_entry_point_commands(*, force: bool = False) -> dict[str, click.Command
         return dict(_entry_point_cache)
 
     found: dict[str, click.Command] = {}
-    candidates: list[EntryPoint] = sorted(
-        entry_points(group=ENTRY_POINT_GROUP),
-        key=lambda ep: (ep.name, ep.value),
-    )
 
-    for ep in candidates:
+    for ep in _iter_entry_points():
+        if needs_full_load(ep):
+            continue
         origin = f"entry point {ep.name!r}"
         try:
             commands = _coerce_commands(ep.load(), origin)
@@ -220,3 +379,4 @@ def clear_entry_point_cache() -> None:
     """清空 entry point 缓存（测试或热加载时使用）。"""
     global _entry_point_cache
     _entry_point_cache = None
+    _deferred_entry_point_cache.clear()
