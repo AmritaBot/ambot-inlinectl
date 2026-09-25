@@ -4,8 +4,16 @@ import amrita
 import click
 from amrita import prepare_nb_cli, prepare_orm
 
+from .group import AmbotGroup
+from .registry import (
+    ENTRY_POINT_GROUP,
+    load_entry_point_commands,
+    overridden_commands,
+    registered_commands,
+)
 
-@click.group()
+
+@click.group(cls=AmbotGroup)
 def main():
     """Ambot Inline Control"""
     pass
@@ -45,6 +53,31 @@ def run_in_sub():
     """Run the bot in a subprocess"""
     click.echo("Running in subprocess...")
     subprocess.call(["ambot", "run"])
+
+
+@main.command("cmds")
+def list_cmds():
+    """列出所有子命令及其来源"""
+    # 先加载 entry point：自行注册的命令会在这一步进入进程内注册表
+    external = sorted(load_entry_point_commands())
+    builtin = sorted(name for name, cmd in main.commands.items() if not cmd.hidden)
+    overrides = sorted(overridden_commands())
+    registered = sorted(registered_commands())
+
+    def _section(title: str, names: list[str]) -> None:
+        if not names:
+            return
+        click.echo(click.style(f"\n{title}", fg="cyan", bold=True))
+        for name in names:
+            click.echo(f"  • {name}")
+
+    _section("ambot 自带命令:", builtin)
+    _section("显式覆盖:", overrides)
+    _section("进程内注册:", registered)
+    _section(f"entry point ({ENTRY_POINT_GROUP}):", external)
+
+    total = len(set(builtin) | set(overrides) | set(registered) | set(external))
+    click.echo(f"\n  共 {click.style(str(total), bold=True)} 个子命令")
 
 
 @main.command("moo", hidden=True)
