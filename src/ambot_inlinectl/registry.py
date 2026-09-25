@@ -34,8 +34,8 @@ entry point 的值支持标准 extras 语法，用来声明加载方式：
 ``amrita.load_plugins()``，再 ``ep.load()``。用于目标模块位于插件包内、且该包
 import 期依赖插件加载器上下文（例如 ``nonebot.require(...)``）的场景。
 
-entry point 之间出现同名命令时，按 ``(名称, 目标)`` 排序后取先出现的一个，
-并往 stderr 告警，避免结果依赖安装顺序。
+entry point 之间出现同名命令时（``full_load`` 的也在内），按 ``(名称, 目标)``
+排序后取先出现的一个，并往 stderr 告警，避免结果依赖安装顺序。
 """
 
 from __future__ import annotations
@@ -227,9 +227,9 @@ def needs_full_load(ep: EntryPoint) -> bool:
 
 
 def deferred_entry_point_names() -> list[str]:
-    """需要自举的 entry point 名称（只读元信息，不加载目标）。"""
+    """需要自举的 entry point 名称（只读元信息，不加载目标，已去重）。"""
     return sorted(
-        _normalize(ep.name) for ep in _iter_entry_points() if needs_full_load(ep)
+        {_normalize(ep.name) for ep in _iter_entry_points() if needs_full_load(ep)}
     )
 
 
@@ -241,8 +241,7 @@ def _bootstrap() -> None:
     global _bootstrap_done
     if _bootstrap_done:
         return
-    # 告知插件当前处于 `ambot <cmd>` 命令上下文（而非在跑 bot），
-    # 使其跳过启动期的交互式检查。
+    # 告知插件当前处于 `ambot <cmd>` 命令上下文（而非在跑 bot），使其跳过启动期的交互式检查。
     os.environ[COMMAND_CONTEXT_ENV] = "1"
     import amrita
 
@@ -252,15 +251,24 @@ def _bootstrap() -> None:
 
 
 def _load_deferred_target(ep: EntryPoint) -> click.Command | None:
-    """自举后加载 ``full_load`` entry point 的目标，失败只告警。"""
+    """自举后加载 ``full_load`` entry point 的目标，失败只告警。
+
+    目标返回 ``None`` 表示它已自行调用 :func:`register_command`，此时按
+    entry point 名取回**本次新注册**的命令。
+    """
     origin = f"entry point {ep.name!r}"
     _bootstrap()
+    before = dict(_registry)
     try:
         commands = _coerce_commands(ep.load(), origin)
     except Exception as exc:
         _warn(f"加载子命令 {ep.name!r} 失败：{exc}")
         return None
     if not commands:
+        cmd_name = _normalize(ep.name)
+        registered = _registry.get(cmd_name)
+        if registered is not None and registered is not before.get(cmd_name):
+            return registered
         return None
     if len(commands) > 1:
         _warn(f"{origin} 声明了 full_load，但返回多个命令，仅取第一个")
@@ -303,8 +311,7 @@ class DeferredCommand(click.Command):
         parent: click.Context | None = None,
         **extra: Any,
     ) -> click.Context:
-        # 完全交给真实命令建上下文：--help、参数解析、no_args_is_help
-        # 等行为与直接注册的命令一致。
+        # 完全交给真实命令建上下文：--help、参数解析、no_args_is_help 等行为与直接注册的命令一致。
         return self.resolve_target().make_context(
             info_name, args, parent=parent, **extra
         )
@@ -317,25 +324,34 @@ class DeferredCommand(click.Command):
 def load_deferred_entry_point_command(name: str) -> click.Command | None:
     """按名取 ``full_load`` entry point 的惰性代理（不触发自举）。
 
-    只按 entry point 名匹配（``full_load`` 约定为单个命令）。
+    只按 entry point 名匹配（``full_load`` 约定为单个命令）。同名 entry
+    point 多于一个时，与普通 entry point 一致：按 ``(名称, 目标)`` 排序取
+    先出现的一个，并往 stderr 告警。
     """
     cmd_name = _normalize(name)
     cached = _deferred_entry_point_cache.get(cmd_name)
     if cached is not None:
         return cached
 
-    for ep in _iter_entry_points():
-        if _normalize(ep.name) != cmd_name or not needs_full_load(ep):
-            continue
-        proxy = DeferredCommand(
-            name=cmd_name,
-            entry_point=ep,
-            help_text=f"来自 {ep.value}（首次调用时加载插件）",
-        )
-        _deferred_entry_point_cache[cmd_name] = proxy
-        return proxy
+    matches = [
+        ep
+        for ep in _iter_entry_points()
+        if _normalize(ep.name) == cmd_name and needs_full_load(ep)
+    ]
+    if not matches:
+        return None
 
-    return None
+    if len(matches) > 1:
+        ignored = "、".join(repr(ep.value) for ep in matches[1:])
+        _warn(f"子命令 {cmd_name!r} 有多个 full_load entry point，忽略 {ignored}")
+
+    proxy = DeferredCommand(
+        name=cmd_name,
+        entry_point=matches[0],
+        help_text=f"来自 {matches[0].value}（首次调用时加载插件）",
+    )
+    _deferred_entry_point_cache[cmd_name] = proxy
+    return proxy
 
 
 def load_entry_point_commands(*, force: bool = False) -> dict[str, click.Command]:
