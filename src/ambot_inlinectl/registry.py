@@ -243,7 +243,7 @@ def _bootstrap() -> None:
         return
     # 告知插件当前处于 `ambot <cmd>` 命令上下文（而非在跑 bot），
     # 使其跳过启动期的交互式检查。
-    os.environ.setdefault(COMMAND_CONTEXT_ENV, "1")
+    os.environ[COMMAND_CONTEXT_ENV] = "1"
     import amrita
 
     amrita.init()
