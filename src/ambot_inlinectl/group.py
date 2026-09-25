@@ -5,6 +5,8 @@ from __future__ import annotations
 import click
 
 from .registry import (
+    get_registered_command,
+    is_overridden,
     load_entry_point_commands,
     overridden_commands,
     registered_commands,
@@ -38,15 +40,16 @@ class AmbotGroup(click.Group):
     """
 
     def _resolve(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
-        cmd = overridden_commands().get(cmd_name)
-        if cmd is not None:
-            return cmd
+        if is_overridden(cmd_name):
+            cmd = get_registered_command(cmd_name)
+            if cmd is not None:
+                return cmd
 
         cmd = super().get_command(ctx, cmd_name)
         if cmd is not None:
             return cmd
 
-        cmd = registered_commands().get(cmd_name)
+        cmd = get_registered_command(cmd_name)
         if cmd is not None:
             return cmd
 

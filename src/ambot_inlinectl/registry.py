@@ -21,12 +21,15 @@ entry point 指向的对象可以是：
 
 单个 entry point 对应单个命令时，命令名以 entry point 名为准，便于包作者
 用同一份实现暴露别名；返回多个命令时，各自使用命令自身的名称。
+
+entry point 之间出现同名命令时，按 ``(名称, 目标)`` 排序后取先出现的一个，
+并往 stderr 告警，避免结果依赖安装顺序。
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from importlib.metadata import entry_points
+from importlib.metadata import EntryPoint, entry_points
 from typing import Any
 
 import click
@@ -35,7 +38,7 @@ ENTRY_POINT_GROUP = "ambot.commands"
 """第三方包声明 ambot 子命令所使用的 entry point 组名。"""
 
 _registry: dict[str, click.Command] = {}
-_overrides: dict[str, click.Command] = {}
+_shadowed: set[str] = set()
 _entry_point_cache: dict[str, click.Command] | None = None
 
 
@@ -58,8 +61,8 @@ def register_command(
 
     Args:
         command: 要注册的命令对象。
-        name: 命令名，省略时取 ``command.name``。
-        replace: 为 ``True`` 时允许覆盖 ambot 自带命令（例如 ``run``）。
+        name: 命令名，省略时取 ``command.name``。显式传空串会报错。
+        replace: 为 ``True`` 时允许覆盖同名命令，并优先于 ambot 自带命令。
 
     Returns:
         传入的 ``command``，方便链式使用。
@@ -71,7 +74,8 @@ def register_command(
     if not isinstance(command, click.Command):
         raise TypeError(f"需要 click.Command，收到 {type(command).__name__}")
 
-    cmd_name = _normalize(name or command.name or "")
+    raw_name = name if name is not None else command.name
+    cmd_name = _normalize(raw_name or "")
     if not cmd_name:
         raise ValueError("注册子命令需要一个非空名称")
 
@@ -79,19 +83,19 @@ def register_command(
         raise ValueError(f"子命令 {cmd_name!r} 已被注册，如需覆盖请传 replace=True")
 
     command.name = cmd_name
+    _registry[cmd_name] = command
     if replace:
-        _overrides[cmd_name] = command
+        _shadowed.add(cmd_name)
     else:
-        _overrides.pop(cmd_name, None)
-        _registry[cmd_name] = command
+        _shadowed.discard(cmd_name)
     return command
 
 
 def unregister_command(name: str) -> bool:
     """移除一个已注册的子命令，返回是否真的移除了。"""
     cmd_name = _normalize(name)
-    removed = _registry.pop(cmd_name, None) is not None
-    return _overrides.pop(cmd_name, None) is not None or removed
+    _shadowed.discard(cmd_name)
+    return _registry.pop(cmd_name, None) is not None
 
 
 def command(
@@ -129,9 +133,19 @@ def registered_commands() -> dict[str, click.Command]:
     return dict(_registry)
 
 
+def get_registered_command(name: str) -> click.Command | None:
+    """按名称取一个进程内注册的子命令。"""
+    return _registry.get(_normalize(name))
+
+
 def overridden_commands() -> dict[str, click.Command]:
     """返回声明覆盖 ambot 自带命令的子命令（副本）。"""
-    return dict(_overrides)
+    return {name: _registry[name] for name in sorted(_shadowed) if name in _registry}
+
+
+def is_overridden(name: str) -> bool:
+    """该名称是否以 ``replace=True`` 注册、应当优先于 ambot 自带命令。"""
+    return _normalize(name) in _shadowed
 
 
 def _coerce_commands(obj: Any, origin: str) -> list[click.Command]:
@@ -151,6 +165,20 @@ def _coerce_commands(obj: Any, origin: str) -> list[click.Command]:
     raise TypeError(f"{origin} 未返回 click.Command")
 
 
+def _add_entry_point_command(
+    found: dict[str, click.Command],
+    name: str,
+    command: click.Command,
+    origin: str,
+) -> None:
+    """写入 entry point 命令表，同名时保留先出现的一个并告警。"""
+    if name in found:
+        _warn(f"子命令 {name!r} 已被占用，忽略来自 {origin} 的重复定义")
+        return
+    command.name = name
+    found[name] = command
+
+
 def load_entry_point_commands(*, force: bool = False) -> dict[str, click.Command]:
     """扫描并缓存 ``ambot.commands`` entry point 声明的子命令。
 
@@ -162,7 +190,12 @@ def load_entry_point_commands(*, force: bool = False) -> dict[str, click.Command
         return dict(_entry_point_cache)
 
     found: dict[str, click.Command] = {}
-    for ep in entry_points(group=ENTRY_POINT_GROUP):
+    candidates: list[EntryPoint] = sorted(
+        entry_points(group=ENTRY_POINT_GROUP),
+        key=lambda ep: (ep.name, ep.value),
+    )
+
+    for ep in candidates:
         origin = f"entry point {ep.name!r}"
         try:
             commands = _coerce_commands(ep.load(), origin)
@@ -171,15 +204,13 @@ def load_entry_point_commands(*, force: bool = False) -> dict[str, click.Command
             continue
 
         if len(commands) == 1:
-            cmd_name = _normalize(ep.name)
-            commands[0].name = cmd_name
-            found[cmd_name] = commands[0]
+            _add_entry_point_command(found, _normalize(ep.name), commands[0], origin)
             continue
 
         for cmd in commands:
             cmd_name = _normalize(cmd.name or "")
             if cmd_name:
-                found[cmd_name] = cmd
+                _add_entry_point_command(found, cmd_name, cmd, origin)
 
     _entry_point_cache = found
     return dict(found)

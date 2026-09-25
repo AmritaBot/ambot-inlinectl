@@ -142,8 +142,11 @@ def my_run():
     ...
 ```
 
-重复注册同名命令会抛 `ValueError`；加载失败的 entry point 只会告警并跳过，
-不影响其余命令。
+重复注册同名命令会抛 `ValueError`（显式传空名称同样报错）；加载失败的
+entry point 只会告警并跳过，不影响其余命令。两个 entry point 声明了同一个
+命令名时，按 `(名称, 目标)` 排序取先出现的一个并告警，结果不依赖安装顺序。
+
+用 `unregister_command()` 注销后，被它覆盖的自带命令会恢复。
 
 ## pyproject.toml 配置
 

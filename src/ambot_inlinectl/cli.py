@@ -62,7 +62,7 @@ def list_cmds():
     external = sorted(load_entry_point_commands())
     builtin = sorted(name for name, cmd in main.commands.items() if not cmd.hidden)
     overrides = sorted(overridden_commands())
-    registered = sorted(registered_commands())
+    registered = sorted(set(registered_commands()) - set(overrides))
 
     def _section(title: str, names: list[str]) -> None:
         if not names:
