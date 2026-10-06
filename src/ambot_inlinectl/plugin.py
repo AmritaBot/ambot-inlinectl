@@ -1,70 +1,41 @@
-from importlib.metadata import distributions
 from pathlib import Path
 
 import click
-import tomlkit
 from amctl.uv_util import UvOperator
 
+from ._compat import (
+    PyprojectNotFoundError,
+    find_pyproject,
+    iter_dir_plugins,
+    iter_dist_plugins,
+    modify_plugin_list,
+)
 from .cli import plugin
 
 #  helpers: pyproject.toml
 
 
 def _find_pyproject(start_dir: Path | None = None) -> Path | None:
-    """向上查找 ``pyproject.toml``。"""
-    current = Path.cwd() if start_dir is None else start_dir.resolve()
-    while True:
-        candidate = current / "pyproject.toml"
-        if candidate.is_file():
-            return candidate
-        parent = current.parent
-        if parent == current:
-            return None
-        current = parent
+    """向上查找 ``pyproject.toml``。
+
+    实现已下沉到 ``amrita.utils.pyproject_io``，CLI 与 WebUI 共用一份。
+    """
+    return find_pyproject(start_dir)
 
 
 def _modify_tool_amrita_plugins(package: str, *, remove: bool = False) -> bool:
     """在 ``[tool.amrita.plugins]`` 中添加或移除一个插件条目。
 
-    使用 ``tomlkit`` 以保留原有格式和注释。
+    实现同样在 ``amrita.utils.pyproject_io``；这里只把中性异常转回
+    ``click.ClickException``，保持 CLI 的报错文案与退出码不变。
 
     Returns:
         ``True`` 表示实际发生了修改，``False`` 表示无需修改。
     """
-    pp = _find_pyproject()
-    if pp is None:
-        raise click.ClickException("未找到 pyproject.toml")
-
-    doc = tomlkit.parse(pp.read_text(encoding="utf-8"))
-    package = package.replace("-", "_").lower()
-
-    # 确保 [tool] 和 [tool.amrita] 存在
-    tool = doc.setdefault("tool", tomlkit.table())
-    amrita_section = tool.setdefault("amrita", tomlkit.table())
-    plugins = amrita_section.setdefault("plugins", tomlkit.array())
-
-    # 转换为多行数组格式以保持美观
-    if hasattr(plugins, "multiline"):
-        plugins.multiline(True)
-
-    if remove:
-        if package in plugins:
-            # tomlkit 的 Array 没有直接 remove 值的方法，构造新列表
-            new_arr = tomlkit.array()
-            new_arr.multiline(True)
-            for item in plugins:
-                if str(item).strip('"') != package:
-                    new_arr.append(item)
-            amrita_section["plugins"] = new_arr
-            pp.write_text(tomlkit.dumps(doc), encoding="utf-8")
-            return True
-        return False
-    else:
-        if package not in plugins:
-            plugins.append(package)
-            pp.write_text(tomlkit.dumps(doc), encoding="utf-8")
-            return True
-        return False
+    try:
+        return modify_plugin_list(package, target="amrita", remove=remove)
+    except PyprojectNotFoundError as e:
+        raise click.ClickException("未找到 pyproject.toml") from e
 
 
 #  helpers: plugin discovery
@@ -72,26 +43,12 @@ def _modify_tool_amrita_plugins(package: str, *, remove: bool = False) -> bool:
 
 def _get_installed_plugins(prefix: str) -> list[tuple[str, str]]:
     """获取以指定前缀开头的 pip 安装包。"""
-    result = []
-    for dist in distributions():
-        name = dist.metadata["Name"]
-        if name.startswith(prefix):
-            result.append((name, dist.version))
-    return sorted(result)
+    return iter_dist_plugins(prefix)
 
 
 def _get_directory_plugins(dir_path: Path) -> list[str]:
     """扫描目录下的插件子目录（排除以 _ 或 . 开头的目录）。"""
-    if not dir_path.exists() or not dir_path.is_dir():
-        return []
-    result = [
-        entry.name
-        for entry in dir_path.iterdir()
-        if entry.is_dir()
-        and not entry.name.startswith("_")
-        and not entry.name.startswith(".")
-    ]
-    return sorted(result)
+    return iter_dir_plugins(dir_path)
 
 
 #  commands
@@ -103,7 +60,7 @@ def list_plugins():
 
     包括:
     - amrita_plugin_* (pip 安装的 Amrita 插件)
-    - nonebot_plugin_* (pip 安装的 NoneBot 插件)
+    - nonebot_plugin_* (pip 装的 NoneBot 插件)
     - plugins/ 目录 (本地 Amrita 插件)
     - src/plugins/ 目录 (本地 NoneBot 插件)
     """
