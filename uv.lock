@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -313,7 +313,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.11.0"
+version = "1.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -349,9 +349,9 @@ dependencies = [
     { name = "watchfiles" },
     { name = "zipp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/42/72cb3b2c84c5f4229650e9b716ba71bb1edaf97a620bb0a16c9fe0022463/amrita-1.11.0.tar.gz", hash = "sha256:b0b9de1c63d24cdeb17477ef50d9996e34f9a48a327732f5ae9f09b6e888f7be", size = 1716713, upload-time = "2026-10-06T13:21:53.822Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/5e/f09096fa959134bf021f9368d674c70f279f238f6f4c775c237c0e2a5e59/amrita-1.13.1.tar.gz", hash = "sha256:ce9d54088a53b8032091effdd46856e07cde9e1252925c6ee7f8f954c15bdb09", size = 1726388, upload-time = "2026-10-27T05:13:11.584Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/11/91928ffdf820d1692241194d3210b5599431e5e81bd3182c48217aef5fda/amrita-1.11.0-py3-none-any.whl", hash = "sha256:25a4c74fd806084358d17480089a638cda77b67b57f32f08ebfbeebacecf911b", size = 1840983, upload-time = "2026-10-06T13:21:52.146Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/ad/9a7e54061418b6a88013ef4e5483a3121e9bd5ac7e42c4763f142e2d8b7a/amrita-1.13.1-py3-none-any.whl", hash = "sha256:70fd774f2b8c9e3fb106b65e42f730a4fe3ee555be0c0db1e327a21e7a90d0a9", size = 1851619, upload-time = "2026-10-27T05:13:09.368Z" },
 ]
 
 [[package]]
