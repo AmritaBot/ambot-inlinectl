@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -313,7 +313,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.11.0"
+version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -349,9 +349,9 @@ dependencies = [
     { name = "watchfiles" },
     { name = "zipp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/42/72cb3b2c84c5f4229650e9b716ba71bb1edaf97a620bb0a16c9fe0022463/amrita-1.11.0.tar.gz", hash = "sha256:b0b9de1c63d24cdeb17477ef50d9996e34f9a48a327732f5ae9f09b6e888f7be", size = 1716713, upload-time = "2026-10-06T13:21:53.822Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/3a/9e696024cdb1345c662d3c436a9569fb63f2ea55c96cd8132d7781276e59/amrita-1.14.0.tar.gz", hash = "sha256:f2a6ff13717cdd5fd2b1968806e78c58d66336a7ffebbbe4f6d6a62d8b6ebfcd", size = 1728634, upload-time = "2026-10-30T04:24:48.733Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/11/91928ffdf820d1692241194d3210b5599431e5e81bd3182c48217aef5fda/amrita-1.11.0-py3-none-any.whl", hash = "sha256:25a4c74fd806084358d17480089a638cda77b67b57f32f08ebfbeebacecf911b", size = 1840983, upload-time = "2026-10-06T13:21:52.146Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/07/76c357b83f6b8f52060f43d8c7247ada0ed06b73c02a371624766741dfb8/amrita-1.14.0-py3-none-any.whl", hash = "sha256:0c313516d6fc2bbd5a9fe043b4fefaa863f9dec203468bbf2a0790c5e8cf8040", size = 1855254, upload-time = "2026-10-30T04:24:47.302Z" },
 ]
 
 [[package]]
@@ -2058,7 +2058,7 @@ wheels = [
 
 [[package]]
 name = "nonebot-plugin-amrita"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
@@ -2067,9 +2067,9 @@ dependencies = [
     { name = "nonebot-plugin-orm" },
     { name = "nonebot2" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/02/d06996b096bd4c122e6e8ae1ce1d33618bc6cf2aab242d86fa3d568edef8/nonebot_plugin_amrita-0.4.0.tar.gz", hash = "sha256:8bdef9131d8b8000c1344b211111d146dcba3834c7a50522ad5cb2cf187a92cc", size = 36350, upload-time = "2026-10-02T04:38:16.117Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/5c/8c304c3ea8a32f59cf2de8fc476640c16473639845a4f68a5b9de3f0fdf1/nonebot_plugin_amrita-0.5.0.tar.gz", hash = "sha256:49aab70eb94cccf21073e700b7d8f0bcf4b53f0cc15621d020141ab3a865841d", size = 38333, upload-time = "2026-10-30T02:40:15.075Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/9a/8058b16b785a84b53767bde9352adb81d9c73ca298f6ac4e0e5aef3241f0/nonebot_plugin_amrita-0.4.0-py3-none-any.whl", hash = "sha256:89b578e1a83226f196ede3efbab04073d3cee29d22deb23b40a1e8fd4b765a88", size = 33834, upload-time = "2026-10-02T04:38:15.03Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/5e/9058cc353b3bfb168051729644f23ce965cc4b288e235698b8e9e453e78a/nonebot_plugin_amrita-0.5.0-py3-none-any.whl", hash = "sha256:9b8f8c1117e159037c94c95cbb69581f7cdddc78256984bc2ab0b43a9da1e21c", size = 36690, upload-time = "2026-10-30T02:40:13.624Z" },
 ]
 
 [[package]]
